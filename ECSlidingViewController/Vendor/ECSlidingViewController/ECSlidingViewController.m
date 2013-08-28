@@ -94,6 +94,28 @@ NSString *const ECSlidingViewTopDidReset             = @"ECSlidingViewTopDidRese
 @synthesize topViewIsOffScreen = _topViewIsOffScreen;
 @synthesize topViewSnapshotPanGesture = _topViewSnapshotPanGesture;
 
+// Defer status bar style to the top controller's preferredStatusBarStyle, if possible.
+// This method is new to UIViewController in iOS 7, and has no effect in previous versions
+// of iOS.
+- (UIStatusBarStyle)preferredStatusBarStyle {
+    UIStatusBarStyle style = UIStatusBarStyleDefault;
+    
+  SEL selector = @selector(preferredStatusBarStyle);
+  if ([self.topViewController respondsToSelector:selector]) {
+      // preferredStatusBarStyle is on iOS 7 only, so we need to check if the topViewController
+      // responds to it - and since we want iOS 6 builds to succeed, we have to use performSelector:
+      // or an NSInvocation.  However preferredStatusBarStyle returns a primitive, which is not
+      // supported by performSelector:, which is why we use the more complicated NSInvocation here.
+    NSInvocation* invocation = [NSInvocation invocationWithMethodSignature:[self.topViewController.class instanceMethodSignatureForSelector:selector]];
+    invocation.selector = selector;
+    invocation.target = self.topViewController;
+    [invocation invoke];
+    [invocation getReturnValue:&style];
+  }
+  
+  return style;
+}
+
 - (void)setTopViewController:(UIViewController *)theTopViewController
 {
   CGRect topViewFrame = _topViewController ? _topViewController.view.frame : self.view.bounds;
@@ -114,6 +136,10 @@ NSString *const ECSlidingViewTopDidReset             = @"ECSlidingViewTopDidRese
   _topViewController.view.layer.shadowPath = [UIBezierPath bezierPathWithRect:self.view.layer.bounds].CGPath;
   
   [self.view addSubview:_topViewController.view];
+    
+  if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+    [self performSelector:@selector(setNeedsStatusBarAppearanceUpdate)];
+  }
 }
 
 - (void)setUnderLeftViewController:(UIViewController *)theUnderLeftViewController
